@@ -1,0 +1,59 @@
+# Patterns are matched against target paths relative to $HOME.
+# Anything listed here is excluded from the target state, so it is never
+# applied to a machine -- and `chezmoi add` refuses to track it.
+
+# ---------------------------------------------------------------------------
+# Secrets. Never track these anywhere, public repo or not.
+# ---------------------------------------------------------------------------
+.claude/.credentials.json
+.claude.json
+.ssh/config
+.ssh/id_*
+.ssh/*_key
+.ssh/*.pem
+.ssh/known_hosts*
+.aws
+.netrc
+.bash_history
+
+# ---------------------------------------------------------------------------
+# Claude Code: ephemeral state, caches, and work transcripts.
+# ~/.claude is ~220MB, almost all of it regenerable or private.
+# `projects/` in particular is a verbatim archive of past sessions.
+# ---------------------------------------------------------------------------
+.claude/projects
+.claude/file-history
+.claude/sessions
+.claude/session-env
+.claude/history.jsonl
+.claude/shell-snapshots
+.claude/paste-cache
+.claude/cache
+.claude/backups
+.claude/debug
+.claude/downloads
+.claude/ide
+.claude/tasks
+.claude/todos
+.claude/statsig
+.claude/plugins
+.claude/stats-cache.json
+.claude/mcp-needs-auth-cache.json
+.claude/chezmoistate.boltdb
+.claude/*.bak
+
+# Externally managed: skills symlinked out of ~/.agents/skills are restored
+# by their own installer, so tracking the dangling links helps nobody.
+.agents
+
+# ---------------------------------------------------------------------------
+# Work-only context. Excluded on personal machines because it is useless
+# without work Jira / Azure / VPN -- and excluded from a public repo because
+# it documents internal service names and infrastructure.
+# ---------------------------------------------------------------------------
+{{ if not (get . "work") }}
+.claude/skills/twg*
+.claude/skills/waf-false-positive
+.claude/skills/resolving-critical-vulns
+.claude/skills/concept-docs
+{{ end }}
