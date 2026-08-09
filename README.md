@@ -15,6 +15,9 @@ chezmoi diff      # read this before trusting it
 chezmoi apply
 ```
 
+[RUNBOOK.md](RUNBOOK.md) has the full procedure, including the different steps
+for a machine that already has the repo and needs to catch up.
+
 There is no `--apply` on `init` on purpose. Clone and apply in one step and the
 first time you see what lands in `$HOME` is after it has already landed.
 

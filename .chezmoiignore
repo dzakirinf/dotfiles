@@ -3,11 +3,12 @@
 # applied to a machine -- and `chezmoi add` refuses to track it.
 
 # ---------------------------------------------------------------------------
-# Repo documentation, not dotfiles. chezmoi has no special case for README.md:
+# Repo documentation, not dotfiles. chezmoi has no special case for these:
 # any source file without a dot_ or private_ prefix is a target file, so
-# without this rule `chezmoi apply` would drop a README.md into $HOME.
+# without this rule `chezmoi apply` would drop them into $HOME.
 # ---------------------------------------------------------------------------
 README.md
+RUNBOOK.md
 
 # ---------------------------------------------------------------------------
 # Machine-local identity. Tracking any of these would pin every machine to
