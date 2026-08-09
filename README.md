@@ -50,6 +50,18 @@ push yourself.
 | --- | --- |
 | `~/.bashrc` | Identical on every machine, with no work-specific content. |
 | `~/.config/starship.toml` | Prompt config. Shows the hostname unconditionally, which is the point when you hop between four boxes. |
+| `~/.claude/statusline-command.sh` | Claude Code status line. Reads the JSON payload on stdin and prints model, effort, git state, a context-usage bar, and the 5-hour rate limit. |
+
+The status line script is tracked but not switched on. `~/.claude/settings.json`
+points hooks at work-only helper scripts, so it stays out of this repo, and a
+new machine needs the key added by hand:
+
+```json
+"statusLine": {
+  "type": "command",
+  "command": "bash ~/.claude/statusline-command.sh"
+}
+```
 
 ## What is never tracked
 
@@ -62,7 +74,9 @@ instead of leaving it to memory.
   stays out until templating it is worth the trouble.
 - Anything naming an employer's internal services, infrastructure, or
   ticketing. Separate machines, separate employers, and none of it belongs in a
-  personal repo.
+  personal repo. `~/.claude/settings.json` falls here: its hook commands point
+  at work-only scripts. Claude Code rewrites that file on its own anyway, so
+  tracking it would mean a standing diff.
 - Hook scripts, plugins, and anything else its own installer rewrites on update.
   Tracking those creates a permanent phantom diff between chezmoi and whatever
   installed them.
