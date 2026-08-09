@@ -1,0 +1,24 @@
+{{- /* Hostname color identifies the machine at a glance. Falls back to the
+       personal color when `profile` is unset, so a machine that has not been
+       re-inited renders something sane instead of failing the template. */ -}}
+{{- $profile := get . "profile" | default "personal" -}}
+{{- $hostColor := "purple" -}}
+{{- if eq $profile "work1" }}{{ $hostColor = "#ff8700" }}{{ end -}}
+{{- if eq $profile "work2" }}{{ $hostColor = "cyan" }}{{ end -}}
+[hostname]
+ssh_only = false
+format = "[$hostname](bold {{ $hostColor }}) "
+disabled = false
+
+[time]
+disabled = false
+format = '🕙[\[ $time \]]($style) '
+time_format = '%T'
+utc_time_offset = '+8'
+time_range = '00:00:00-23:00:00'
+
+[git_status]
+behind = '⇣${count}'
+ahead = '⇡${count}'
+diverged = '⇕⇡${ahead_count}⇣${behind_count}'
+up_to_date = '✓'

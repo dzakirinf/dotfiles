@@ -10,6 +10,15 @@
 README.md
 
 # ---------------------------------------------------------------------------
+# Machine-local identity. Tracking any of these would pin every machine to
+# whichever one it was added from: chezmoi.toml holds the `profile` value that
+# tells templates which box this is, and .gitconfig holds a per-machine email
+# and credential helper.
+# ---------------------------------------------------------------------------
+.config/chezmoi
+.gitconfig
+
+# ---------------------------------------------------------------------------
 # Secrets. Never track these anywhere, public repo or not.
 # ---------------------------------------------------------------------------
 .claude/.credentials.json
@@ -58,7 +67,7 @@ README.md
 # without work Jira / Azure / VPN -- and excluded from a public repo because
 # it documents internal service names and infrastructure.
 # ---------------------------------------------------------------------------
-{{ if not (get . "work") }}
+{{ if eq (get . "profile" | default "personal") "personal" }}
 .claude/skills/twg*
 .claude/skills/waf-false-positive
 .claude/skills/resolving-critical-vulns

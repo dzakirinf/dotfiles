@@ -31,6 +31,29 @@ account, so plain `git@github.com:` works.
 Each machine also needs its own SSH key on the GitHub account. Then losing one
 laptop means revoking one key instead of rotating every key everywhere.
 
+## Machine profiles
+
+`init` asks one question: is this box `personal`, `work1`, or `work2`. The
+answer goes into `~/.config/chezmoi/chezmoi.toml`, which stays local and out of
+git, and templates read it as `.profile`. Machines identify themselves that way
+so the repo never has to name a work hostname to recognise one.
+
+Two things read the profile today. The starship hostname color is orange on
+work1, cyan on work2, and purple on personal, so a glance at the prompt says
+which box you are typing into. The work-only Claude skills are excluded on
+personal machines, where they are useless without the matching Jira and VPN.
+
+Templates fall back to `personal` when the value is missing, so a machine set up
+before this existed still renders rather than failing. To set the value on such
+a machine without waiting for a prompt:
+
+```sh
+chezmoi init --promptString profile=work2
+```
+
+Adding a fourth machine means picking a name here and adding one line to
+`private_dot_config/starship.toml.tmpl`.
+
 ## Day to day
 
 ```sh
@@ -49,7 +72,7 @@ push yourself.
 | Target | Notes |
 | --- | --- |
 | `~/.bashrc` | Identical on every machine, with no work-specific content. |
-| `~/.config/starship.toml` | Prompt config. Shows the hostname unconditionally, which is the point when you hop between four boxes. |
+| `~/.config/starship.toml` | Prompt config, templated. Shows the hostname unconditionally, which is the point when you hop between four boxes, colored by machine profile. |
 | `~/.claude/statusline-command.sh` | Claude Code status line. Reads the JSON payload on stdin and prints model, effort, git state, a context-usage bar, and the 5-hour rate limit. |
 
 The status line script is tracked but not switched on. `~/.claude/settings.json`

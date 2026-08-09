@@ -1,0 +1,8 @@
+{{- /* Generates ~/.config/chezmoi/chezmoi.toml at `chezmoi init`.
+       `profile` names the machine so templates can vary per box without
+       putting hostnames in a public repo. promptStringOnce only asks when
+       the value is not already stored, so re-running init never re-prompts. */ -}}
+{{- $profile := promptStringOnce . "profile" "Machine profile (personal / work1 / work2)" "personal" -}}
+
+[data]
+    profile = {{ $profile | quote }}
