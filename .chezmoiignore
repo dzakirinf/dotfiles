@@ -3,6 +3,13 @@
 # applied to a machine -- and `chezmoi add` refuses to track it.
 
 # ---------------------------------------------------------------------------
+# Repo documentation, not dotfiles. chezmoi has no special case for README.md:
+# any source file without a dot_ or private_ prefix is a target file, so
+# without this rule `chezmoi apply` would drop a README.md into $HOME.
+# ---------------------------------------------------------------------------
+README.md
+
+# ---------------------------------------------------------------------------
 # Secrets. Never track these anywhere, public repo or not.
 # ---------------------------------------------------------------------------
 .claude/.credentials.json
