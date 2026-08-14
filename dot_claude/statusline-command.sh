@@ -155,7 +155,9 @@ fi
 [ -n "$added_dirs" ] && parts+=("${DIM}+dirs:${added_dirs}${RESET}")
 [ -n "$worktree_name" ] && parts+=("${DIM}wt:${worktree_name}${RESET}")
 
-# -- Git repo / branch / dirty-clean / ahead-behind / PR --
+# -- Git repo / branch / ahead-behind / PR --
+# Dirty vs. clean is signalled by the color of this field (red vs. green)
+# rather than a literal "(dirty)"/"(clean)" suffix.
 # workspace.repo is only populated when an origin remote exists, so fall back
 # to the working-tree directory name; otherwise a local-only repo renders as a
 # bare branch with no indication of which repo it belongs to.
@@ -169,7 +171,6 @@ git_disp=""
 if [ -n "$repo_disp" ] || [ -n "$branch" ]; then
   git_disp="$repo_disp"
   [ -n "$branch" ] && git_disp="${git_disp}${git_disp:+:}${branch}"
-  [ -n "$dirty" ] && git_disp="${git_disp} (${dirty})"
   [ -n "$ahead" ] && [ "$ahead" != "0" ] && git_disp="${git_disp} ↑${ahead}"
   [ -n "$behind" ] && [ "$behind" != "0" ] && git_disp="${git_disp} ↓${behind}"
 fi
@@ -186,7 +187,7 @@ fi
 # (input + cache_creation + cache_read) / context_window_size, clamped 0-100.
 if [ -n "$used_pct" ]; then
   used_i=$(printf '%.0f' "$used_pct" 2>/dev/null)
-  bar_len=10
+  bar_len=8
   filled=$(( (used_i * bar_len + 50) / 100 ))
   [ "$filled" -gt "$bar_len" ] && filled=$bar_len
   [ "$filled" -lt 0 ] && filled=0
@@ -207,9 +208,9 @@ if [ -n "$five_pct" ]; then
   five_i=$(printf '%.0f' "$five_pct" 2>/dev/null)
   reset_hm=$(fmt_time "$five_reset")
   if [ -n "$reset_hm" ]; then
-    parts+=("${YELLOW}5h:${five_i}%${RESET}${BRIGHT} (resets ${reset_hm})${RESET}")
+    parts+=("${YELLOW}${five_i}%${RESET}${BRIGHT} (${reset_hm})${RESET}")
   else
-    parts+=("${YELLOW}5h:${five_i}%${RESET}")
+    parts+=("${YELLOW}${five_i}%${RESET}")
   fi
 fi
 
