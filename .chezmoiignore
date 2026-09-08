@@ -1,43 +1,28 @@
-# Patterns are matched against target paths relative to $HOME.
-# Anything listed here is excluded from the target state, so it is never
-# applied to a machine -- and `chezmoi add` refuses to track it.
+# Matched against target paths relative to $HOME. chezmoi add refuses these too.
 
-# ---------------------------------------------------------------------------
-# Repo documentation, not dotfiles. chezmoi has no special case for these:
-# any source file without a dot_ or private_ prefix is a target file, so
-# without this rule `chezmoi apply` would drop them into $HOME.
-# ---------------------------------------------------------------------------
+# Without this, apply would drop it into $HOME as a target file.
 README.md
-RUNBOOK.md
 
-# ---------------------------------------------------------------------------
-# Machine-local identity. Tracking any of these would pin every machine to
-# whichever one it was added from: chezmoi.toml holds the `profile` value that
-# tells templates which box this is, and .gitconfig holds a per-machine email
-# and credential helper.
-# ---------------------------------------------------------------------------
+# Tracking these would pin every machine to the one they were added from.
 .config/chezmoi
 .gitconfig
 
-# ---------------------------------------------------------------------------
-# Secrets. Never track these anywhere, public repo or not.
-# ---------------------------------------------------------------------------
 .claude/.credentials.json
 .claude.json
-.ssh/config
-.ssh/id_*
-.ssh/*_key
-.ssh/*.pem
-.ssh/known_hosts*
+.ssh
 .aws
+.azure
+.azure-profiles
+.config/gh
+.docker
+.gnupg
+.npmrc
+.terraform.d
+.git-credentials
 .netrc
 .bash_history
 
-# ---------------------------------------------------------------------------
-# Claude Code: ephemeral state, caches, and work transcripts.
-# ~/.claude is ~220MB, almost all of it regenerable or private.
-# `projects/` in particular is a verbatim archive of past sessions.
-# ---------------------------------------------------------------------------
+# projects/ is a verbatim archive of past sessions; the rest is regenerable.
 .claude/projects
 .claude/file-history
 .claude/sessions
@@ -59,18 +44,14 @@ RUNBOOK.md
 .claude/chezmoistate.boltdb
 .claude/*.bak
 
-# Externally managed: skills symlinked out of ~/.agents/skills are restored
-# by their own installer, so tracking the dangling links helps nobody.
+# Rewritten by hunk on update.
+.config/hunk/state.json
+
+# Symlinks into ~/.agents/skills; their installer recreates them.
 .agents
 
-# ---------------------------------------------------------------------------
-# Work-only context. Excluded on personal machines because it is useless
-# without work Jira / Azure / VPN -- and excluded from a public repo because
-# it documents internal service names and infrastructure.
-# ---------------------------------------------------------------------------
-{{ if eq (get . "profile" | default "personal") "personal" }}
+# Never tracked anywhere: these document internal service names.
 .claude/skills/twg*
 .claude/skills/waf-false-positive
 .claude/skills/resolving-critical-vulns
 .claude/skills/concept-docs
-{{ end }}
