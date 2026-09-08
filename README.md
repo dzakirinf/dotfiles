@@ -1,61 +1,48 @@
 # dotfiles
 
-Personal dotfiles, managed with [chezmoi](https://chezmoi.io).
+Personal dotfiles, managed with [chezmoi](https://chezmoi.io). Per-machine
+values get templated.
 
-This repo is small on purpose and grows one file at a time. A file belongs here
-only if it is the same on every machine and contains nothing secret. If
-something needs per-machine values, it gets templated once that need actually
-shows up.
+## Install
 
-## Bootstrap a new machine
+On a machine that does not have the repo yet:
 
 ```sh
-sh -c "$(curl -fsLS get.chezmoi.io)" -- init git@github.com:dzakirinff/dotfiles.git
-chezmoi diff      # read this before trusting it
+sh -c "$(curl -fsLS get.chezmoi.io)" -- init https://github.com/dzakirinf/dotfiles.git
+chezmoi diff      # review before applying
 chezmoi apply
 ```
 
-[RUNBOOK.md](RUNBOOK.md) has the full procedure, including the different steps
-for a machine that already has the repo and needs to catch up.
+`init` clones into `~/.local/share/chezmoi` and asks three questions.
 
-There is no `--apply` on `init` on purpose. Clone and apply in one step and the
-first time you see what lands in `$HOME` is after it has already landed.
-
-Two things that will bite otherwise.
-
-The clone URL above is not the one in `git remote -v`. On the work machine the
-default GitHub identity is a work account, so pushing this repo needs an
-explicit override: a `github-personal` host alias in that machine's
-`~/.ssh/config`, pinned with `IdentitiesOnly yes` so it uses the personal key
-and nothing else. That alias is local to that machine and only exists because of
-the account collision. Every other machine already defaults to the personal
-account, so plain `git@github.com:` works.
-
-Each machine also needs its own SSH key on the GitHub account. Then losing one
-laptop means revoking one key instead of rotating every key everywhere.
-
-## Machine profiles
-
-`init` asks one question: is this box `personal`, `work1`, or `work2`. The
-answer goes into `~/.config/chezmoi/chezmoi.toml`, which stays local and out of
-git, and templates read it as `.profile`. Machines identify themselves that way
-so the repo never has to name a work hostname to recognise one.
-
-Two things read the profile today. The starship hostname color is orange on
-work1, cyan on work2, and purple on personal, so a glance at the prompt says
-which box you are typing into. The work-only Claude skills are excluded on
-personal machines, where they are useless without the matching Jira and VPN.
-
-Templates fall back to `personal` when the value is missing, so a machine set up
-before this existed still renders rather than failing. To set the value on such
-a machine without waiting for a prompt:
+On a machine that already has the repo, pull and re-run `init` first. Templates
+fail on a machine whose `chezmoi.toml` predates the prompts.
 
 ```sh
-chezmoi init --promptString profile=work2
+chezmoi git pull -- --ff-only
+chezmoi init --promptString profile=work2   # personal, work1 or work2
+chezmoi diff
+chezmoi apply
 ```
 
-Adding a fourth machine means picking a name here and adding one line to
-`private_dot_config/starship.toml.tmpl`.
+The answers land in `~/.config/chezmoi/chezmoi.toml`, which is not tracked.
+
+| Value | Prompt | What reads it |
+| --- | --- | --- |
+| `profile` | `personal`, `work1` or `work2` | Sets the starship hostname color, though the hostname module is currently disabled. |
+| `orgAmber` | GitHub owner, blank if none | Gates the amber org bar in starship and the amber dot in the Claude status line. |
+| `orgBlue` | GitHub owner, blank if none | Gates the blue org bar and the blue dot. |
+
+Both org names stay machine-local, and are stored rather than derived from the
+hostname, so neither an org name nor a work hostname reaches this repo.
+
+`profile` falls back to `personal` when unset. The org values have no fallback,
+which is why `init` comes before `apply`.
+
+Apply only writes files. Install starship separately, and add the settings key
+below to enable the status line.
+
+Inside `~/orange-repos` or `~/blue-repos` the prompt gains that org's bar.
 
 ## Day to day
 
@@ -66,21 +53,21 @@ chezmoi apply               # write changes into $HOME
 chezmoi cd                  # drop into the source repo to commit and push
 ```
 
-chezmoi does not commit anything for you. `chezmoi add` only copies a file into
-the source directory, which is an ordinary git repo you still have to commit and
-push yourself.
+chezmoi does not commit. `chezmoi add` copies the file into the source repo;
+commit and push from there.
 
-## What is tracked
+## Tracked
 
 | Target | Notes |
 | --- | --- |
-| `~/.bashrc` | Identical on every machine, with no work-specific content. |
-| `~/.config/starship.toml` | Prompt config, templated. Shows the hostname unconditionally, which is the point when you hop between four boxes, colored by machine profile. |
-| `~/.claude/statusline-command.sh` | Claude Code status line. Reads the JSON payload on stdin and prints model, effort, git state, a context-usage bar, and the 5-hour rate limit. |
+| `~/.bashrc` | Not templated. Carries the `az` wrapper, which points `AZURE_CONFIG_DIR` at the profile for the current repo tree, plus `azo` and `azb`, which pin it to one org. |
+| `~/.config/starship.toml` | Templated. Org bar first, then the default modules. `[custom.az_warn]` flags an Azure profile that does not match the repo tree. |
+| `~/.config/hunk/config.toml` | Not templated. Hunk diff viewer preferences. |
+| `~/.claude/statusline-command.sh` | Templated. Reads the JSON payload on stdin and prints model, effort, an org dot, repo and branch with ahead/behind counts, a context-usage bar, and the 5-hour rate limit. |
 
-The status line script is tracked but not switched on. `~/.claude/settings.json`
-points hooks at work-only helper scripts, so it stays out of this repo, and a
-new machine needs the key added by hand:
+The status line script is tracked but not enabled: `~/.claude/settings.json`
+stays out of this repo because its hooks point at work-only scripts. Add the key
+by hand:
 
 ```json
 "statusLine": {
@@ -89,25 +76,33 @@ new machine needs the key added by hand:
 }
 ```
 
-## What is never tracked
+## Never tracked
 
-`.chezmoiignore` enforces this list, so `chezmoi add` refuses these paths
-instead of leaving it to memory.
+`.chezmoiignore` enforces most of this. `~/.claude/settings.json` and
+`~/.claude/hooks` are still missing from it.
 
-- Credentials and history: `~/.ssh/`, `~/.aws`, `~/.netrc`, `~/.config/gh`,
-  Claude Code's `.credentials.json`, and shell history.
-- `~/.gitconfig`, which carries a per-machine email and credential helper. It
-  stays out until templating it is worth the trouble.
-- Anything naming an employer's internal services, infrastructure, or
-  ticketing. Separate machines, separate employers, and none of it belongs in a
-  personal repo. `~/.claude/settings.json` falls here: its hook commands point
-  at work-only scripts. Claude Code rewrites that file on its own anyway, so
-  tracking it would mean a standing diff.
-- Hook scripts, plugins, and anything else its own installer rewrites on update.
-  Tracking those creates a permanent phantom diff between chezmoi and whatever
-  installed them.
-- Caches and regenerable state. `~/.claude/projects` alone is ~190MB of session
-  transcripts.
+- Credentials and history: `~/.ssh`, `~/.aws`, `~/.azure`, `~/.azure-profiles`,
+  `~/.config/gh`, `~/.docker`, `~/.gnupg`, `~/.npmrc`, `~/.terraform.d`,
+  `~/.git-credentials`, `~/.netrc`, Claude Code's `.credentials.json` and
+  `~/.claude.json`, and shell history.
+- Machine-local identity: `~/.config/chezmoi`, which holds the profile and the
+  two org names, and `~/.gitconfig`, which carries a per-machine email and
+  credential helper.
+- Anything naming an employer's internal services, infrastructure, or ticketing,
+  including the work-only Claude skills under `~/.claude/skills` and
+  `~/.claude/settings.json`.
+- Hook scripts, plugins, and anything else its own installer rewrites.
+- Caches, and the session archive at `~/.claude/projects`, which grows without
+  bound.
 
-`README.md` is ignored too. It is repo documentation, and without an ignore rule
-chezmoi would treat it as a file belonging in `$HOME`.
+## Troubleshooting
+
+If `chezmoi diff` shows unexpected changes, a file was edited in `$HOME` instead
+of the repo. Decide which version is right before running `apply` (the repo
+wins) or `chezmoi add <path>` (`$HOME` wins).
+
+If a template fails with `map has no entry for key "orgAmber"`, this machine's
+`chezmoi.toml` predates the org prompts. Run the `init` line from Install.
+
+If Claude Code shows no status line, replace `~` in the settings command with
+the absolute home path; the command is not always run through a shell.
