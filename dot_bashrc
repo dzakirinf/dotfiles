@@ -125,23 +125,82 @@ export NVM_DIR="$HOME/.nvm"
 if command -v nvm >/dev/null 2>&1; then
   nvm use default >/dev/null 2>&1
 fi
-export PATH="$HOME/.local/bin:$PATH"
-export PATH="$PATH:$HOME/go/bin"
-export PATH="$PATH:$(go env GOPATH)/bin"
-source <(dv completion bash)
-source <(dv completion bash)
+# A nested interactive shell re-sources this file and inherits PATH, so an
+# unguarded prepend stacks another copy at every level.
+path_prepend() {
+  [ -d "$1" ] || return 0
+  case ":$PATH:" in *":$1:"*) return 0 ;; esac
+  PATH="$1:$PATH"
+}
 
-# bun
+path_append() {
+  [ -d "$1" ] || return 0
+  case ":$PATH:" in *":$1:"*) return 0 ;; esac
+  PATH="$PATH:$1"
+}
+
+# Unguarded, `go env` errors on every shell start when go is not installed.
+command -v go >/dev/null 2>&1 && path_append "$(go env GOPATH)/bin"
+
 export BUN_INSTALL="$HOME/.bun"
-export PATH="$BUN_INSTALL/bin:$PATH"
 
-# opencode
-export PATH=/home/dzakirin/.opencode/bin:$PATH
-export PATH="$HOME/.local/bin:$PATH"
+# A prepend pushes to the front, so the last of these ends up first on PATH.
+path_prepend "$BUN_INSTALL/bin"
+path_prepend "$HOME/.opencode/bin"
+path_prepend "$HOME/.local/bin"
 
-# starship
+export PATH
+
 eval "$(starship init bash)"
 source <(tv init bash)
 
 export EDITOR="micro"
 alias yoloclaude='claude --dangerously-skip-permissions'
+
+alias mainpull='git switch main && git pull --ff-only'
+
+# AZURE_CONFIG_DIR holds the MSAL token cache and the selected subscription.
+export AZ_PROFILE_HOME="$HOME/.azure-profiles"
+
+# Patterns must match the when= globs in starship.toml.
+_az_profile_for_pwd() {
+  case "$PWD" in
+    "$HOME/orange-repos"|"$HOME/orange-repos"/*) echo orange ;;
+    "$HOME/blue-repos"|"$HOME/blue-repos"/*)     echo blue ;;
+  esac
+}
+
+_az_profile_sync() {
+  local want
+  want="$(_az_profile_for_pwd)"
+  [ "$want" = "${AZ_PROFILE-}" ] && return 0
+
+  # A subscription id from one account is invalid under the other.
+  unset ARM_SUBSCRIPTION_ID
+
+  if [ -n "$want" ]; then
+    export AZ_PROFILE="$want" AZURE_CONFIG_DIR="$AZ_PROFILE_HOME/$want"
+  else
+    unset AZ_PROFILE AZURE_CONFIG_DIR
+  fi
+}
+
+az() {
+  local p
+  p="$(_az_profile_for_pwd)"
+  if [ -n "$p" ]; then
+    AZURE_CONFIG_DIR="$AZ_PROFILE_HOME/$p" command az "$@"
+    return
+  fi
+  printf 'az: no profile for this directory. Use azo (orange) or azb (blue).\n' >&2
+  return 1
+}
+
+# `command` prevents these from recursing into the az() wrapper.
+azo() { AZURE_CONFIG_DIR="$AZ_PROFILE_HOME/orange" command az "$@"; }
+azb() { AZURE_CONFIG_DIR="$AZ_PROFILE_HOME/blue"   command az "$@"; }
+
+_az_profile_sync
+
+# starship_precmd runs after starship captures $?; PROMPT_COMMAND can overwrite it.
+starship_precmd_user_func="_az_profile_sync"
