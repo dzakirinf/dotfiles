@@ -1,16 +1,7 @@
 #!/bin/bash
-# Claude Code status line
-# Reads the JSON payload Claude Code sends on stdin and renders a single
-# formatted line with as much of that data as is available.
-#
-# Deliberately EXCLUDED: 7-day / weekly rate-limit usage & reset time.
 
 input=$(cat)
 
-# ---------------------------------------------------------------------------
-# Colors (ANSI). These read fine against Claude Code's dimmed status-line
-# rendering; DIM/GRAY are used for the lower-priority fields.
-# ---------------------------------------------------------------------------
 RESET=$'\033[0m'
 DIM=$'\033[2m'
 BOLD=$'\033[1m'
@@ -22,13 +13,13 @@ MAGENTA=$'\033[35m'
 GRAY=$'\033[90m'
 BRIGHT=$'\033[97m'
 BRIGHT_BLUE=$'\033[94m'
+BRIGHT_ORANGE=$'\033[38;2;255;165;0m'
+# Same hex as the Herdr sidebar and the starship prompt bar.
+ORG_AMBER=$'\033[38;2;245;169;127m'
+ORG_BLUE=$'\033[38;2;137;180;250m'
 SEP="${GRAY} | ${RESET}"
 
-# ---------------------------------------------------------------------------
-# Parse the JSON payload once with python3 (a single fork, vs. one per field
-# with jq) and emit shell-quoted variable assignments to eval.
-# Only fields the line actually renders are emitted.
-# ---------------------------------------------------------------------------
+# Parse the payload once with python3 (one fork, vs. one per field with jq).
 PYSCRIPT=$(cat <<'PYEOF'
 import json, sys, shlex
 
@@ -75,7 +66,6 @@ PYEOF
 )
 eval "$(printf '%s' "$input" | python3 -c "$PYSCRIPT")"
 
-# Shorten $HOME to ~ for readability.
 cwd_disp="$cwd"
 project_disp="$project_dir"
 if [ -n "$HOME" ]; then
@@ -89,10 +79,7 @@ fmt_time() {
   date -d "@$ts" "+%H:%M" 2>/dev/null || date -r "$ts" "+%H:%M" 2>/dev/null
 }
 
-# ---------------------------------------------------------------------------
-# Git info (live, from the working directory) — locks are skipped so this
-# never blocks/contends with a running git operation.
-# ---------------------------------------------------------------------------
+# --no-optional-locks so this never contends with a running git operation.
 git_dir="$cwd"
 [ -z "$git_dir" ] && git_dir="$project_dir"
 branch=""
@@ -105,8 +92,6 @@ if [ -n "$git_dir" ] && git -C "$git_dir" --no-optional-locks rev-parse --git-di
   is_git_repo="1"
   repo_root=$(git -C "$git_dir" --no-optional-locks rev-parse --show-toplevel 2>/dev/null)
   branch=$(git -C "$git_dir" --no-optional-locks branch --show-current 2>/dev/null)
-  # Detached HEAD (rebase, bisect, checked-out tag/SHA) has no current branch;
-  # fall back to the short SHA so this field is never silently blank.
   if [ -z "$branch" ]; then
     short_sha=$(git -C "$git_dir" --no-optional-locks rev-parse --short HEAD 2>/dev/null)
     [ -n "$short_sha" ] && branch="@${short_sha}"
@@ -123,12 +108,8 @@ if [ -n "$git_dir" ] && git -C "$git_dir" --no-optional-locks rev-parse --git-di
   fi
 fi
 
-# ---------------------------------------------------------------------------
-# Assemble the line, piece by piece, skipping anything that isn't present.
-# ---------------------------------------------------------------------------
 parts=()
 
-# -- Model + effort together, space-separated, no pipe between them --
 identity=""
 [ -n "$model" ] && identity="${BOLD}${CYAN}${model}${RESET}"
 if [ -n "$effort" ]; then
@@ -136,7 +117,6 @@ if [ -n "$effort" ]; then
 fi
 [ -n "$identity" ] && parts+=("$identity")
 
-# -- Style / thinking / vim / agent (secondary, muted) --
 if [ -n "$output_style" ] && [ "$output_style" != "default" ]; then
   parts+=("${DIM}style:${output_style}${RESET}")
 fi
@@ -144,29 +124,51 @@ fi
 [ -n "$vim_mode" ] && parts+=("${GREEN}[${vim_mode}]${RESET}")
 [ -n "$agent_name" ] && parts+=("${MAGENTA}agent:${agent_name}${RESET}")
 
-# -- Directory (only when not inside a git repo; git line covers that case) / worktree --
 if [ -z "$is_git_repo" ]; then
   dir_disp="$cwd_disp"
   if [ -n "$project_disp" ] && [ "$cwd_disp" != "$project_disp" ]; then
     dir_disp="${cwd_disp}${BRIGHT} (root:${project_disp})${RESET}"
   fi
-  [ -n "$dir_disp" ] && parts+=("${BRIGHT_BLUE}${dir_disp}${RESET}")
+  dir_color="$BRIGHT_BLUE"
+  case "$cwd" in
+    "$HOME/orange-repos"|"$HOME/orange-repos/"*) dir_color="$BRIGHT_ORANGE" ;;
+  esac
+  [ -n "$dir_disp" ] && parts+=("${dir_color}${dir_disp}${RESET}")
 fi
 [ -n "$added_dirs" ] && parts+=("${DIM}+dirs:${added_dirs}${RESET}")
 [ -n "$worktree_name" ] && parts+=("${DIM}wt:${worktree_name}${RESET}")
 
-# -- Git repo / branch / ahead-behind / PR --
-# Dirty vs. clean is signalled by the color of this field (red vs. green)
-# rather than a literal "(dirty)"/"(clean)" suffix.
-# workspace.repo is only populated when an origin remote exists, so fall back
-# to the working-tree directory name; otherwise a local-only repo renders as a
-# bare branch with no indication of which repo it belongs to.
+# workspace.repo is empty without an origin remote, so fall back to the dir name.
 repo_disp=""
 if [ -n "$repo_owner" ] && [ -n "$repo_name" ]; then
   repo_disp="${repo_owner}/${repo_name}"
 elif [ -n "$repo_root" ]; then
   repo_disp=$(basename "$repo_root")
 fi
+org_owner="$repo_owner"
+if [ -z "$org_owner" ] && [ -n "$repo_root" ]; then
+  origin=$(git -C "$repo_root" --no-optional-locks remote get-url origin 2>/dev/null)
+  case "$origin" in
+{{- if .orgAmber }}
+    *[:/]{{ .orgAmber }}/*) org_owner="{{ .orgAmber }}" ;;
+{{- end }}
+{{- if .orgBlue }}
+    *[:/]{{ .orgBlue }}/*) org_owner="{{ .orgBlue }}" ;;
+{{- end }}
+    *) ;;
+  esac
+fi
+org_dot=""
+case "$(printf '%s' "$org_owner" | tr '[:upper:]' '[:lower:]')" in
+{{- if .orgAmber }}
+  {{ .orgAmber | lower }}) org_dot="${ORG_AMBER}●${RESET} " ;;
+{{- end }}
+{{- if .orgBlue }}
+  {{ .orgBlue | lower }}) org_dot="${ORG_BLUE}●${RESET} " ;;
+{{- end }}
+  *) ;;
+esac
+
 git_disp=""
 if [ -n "$repo_disp" ] || [ -n "$branch" ]; then
   git_disp="$repo_disp"
@@ -176,15 +178,12 @@ if [ -n "$repo_disp" ] || [ -n "$branch" ]; then
 fi
 if [ -n "$git_disp" ]; then
   if [ "$dirty" = "dirty" ]; then
-    parts+=("${RED}${git_disp}${RESET}")
+    parts+=("${org_dot}${RED}${git_disp}${RESET}")
   else
-    parts+=("${GREEN}${git_disp}${RESET}")
+    parts+=("${org_dot}${GREEN}${git_disp}${RESET}")
   fi
 fi
 
-# -- Context window as a bar (muted label, colored fill by usage) --
-# used_percentage arrives pre-computed and pre-rounded by Claude Code as
-# (input + cache_creation + cache_read) / context_window_size, clamped 0-100.
 if [ -n "$used_pct" ]; then
   used_i=$(printf '%.0f' "$used_pct" 2>/dev/null)
   bar_len=8
@@ -203,7 +202,6 @@ if [ -n "$used_pct" ]; then
   for ((i = 0; i < empty; i++)); do bar+="░"; done
   parts+=("${bar_color}[${bar}]${RESET}${BRIGHT} ${used_i}%${RESET}")
 fi
-# -- 5-hour rate limit only (7-day intentionally excluded) --
 if [ -n "$five_pct" ]; then
   five_i=$(printf '%.0f' "$five_pct" 2>/dev/null)
   reset_hm=$(fmt_time "$five_reset")
@@ -214,9 +212,6 @@ if [ -n "$five_pct" ]; then
   fi
 fi
 
-# ---------------------------------------------------------------------------
-# Join with a muted separator and print.
-# ---------------------------------------------------------------------------
 output=""
 for p in "${parts[@]}"; do
   if [ -z "$output" ]; then

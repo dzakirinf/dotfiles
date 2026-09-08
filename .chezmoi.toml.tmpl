@@ -1,8 +1,10 @@
-{{- /* Generates ~/.config/chezmoi/chezmoi.toml at `chezmoi init`.
-       `profile` names the machine so templates can vary per box without
-       putting hostnames in a public repo. promptStringOnce only asks when
-       the value is not already stored, so re-running init never re-prompts. */ -}}
+{{- /* promptStringOnce only asks when the value is unset, so re-running init never re-prompts. */ -}}
 {{- $profile := promptStringOnce . "profile" "Machine profile (personal / work1 / work2)" "personal" -}}
+{{- /* Kept machine-local so no internal org name reaches this repo. */ -}}
+{{- $orgAmber := promptStringOnce . "orgAmber" "Amber org (GitHub owner, blank if none)" "" -}}
+{{- $orgBlue := promptStringOnce . "orgBlue" "Blue org (GitHub owner, blank if none)" "" -}}
 
 [data]
     profile = {{ $profile | quote }}
+    orgAmber = {{ $orgAmber | quote }}
+    orgBlue = {{ $orgBlue | quote }}

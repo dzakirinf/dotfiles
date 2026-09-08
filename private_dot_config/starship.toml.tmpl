@@ -1,14 +1,15 @@
-{{- /* Hostname color identifies the machine at a glance. Falls back to the
-       personal color when `profile` is unset, so a machine that has not been
-       re-inited renders something sane instead of failing the template. */ -}}
+{{- /* get/default avoids a template failure when `profile` is unset. */ -}}
 {{- $profile := get . "profile" | default "personal" -}}
 {{- $hostColor := "purple" -}}
 {{- if eq $profile "work1" }}{{ $hostColor = "#ff8700" }}{{ end -}}
 {{- if eq $profile "work2" }}{{ $hostColor = "cyan" }}{{ end -}}
+# $custom first puts the org bar at the front; $all keeps the rest in default order.
+format = "$custom$all"
+
 [hostname]
 ssh_only = false
 format = "[$hostname](bold {{ $hostColor }}) "
-disabled = false
+disabled = true
 
 [time]
 disabled = false
@@ -22,3 +23,37 @@ behind = '⇣${count}'
 ahead = '⇡${count}'
 diverged = '⇕⇡${ahead_count}⇣${behind_count}'
 up_to_date = '✓'
+
+{{ if .orgAmber }}
+# Org marker: same hex as the Herdr sidebar swatch.
+[custom.org_amber]
+when = 'case "$PWD" in "$HOME/orange-repos"|"$HOME/orange-repos"/*) exit 0;; *) exit 1;; esac'
+command = 'echo ██'
+style = 'bold #f5a97f'
+format = '[$output]($style) '
+shell = ['bash', '--noprofile', '--norc']
+{{ end }}
+{{ if .orgBlue }}
+[custom.org_blue]
+when = 'case "$PWD" in "$HOME/blue-repos"|"$HOME/blue-repos"/*) exit 0;; *) exit 1;; esac'
+command = 'echo ██'
+style = 'bold #89b4fa'
+format = '[$output]($style) '
+shell = ['bash', '--noprofile', '--norc']
+{{ end }}
+
+# Shown only when the active Azure account doesn't match the repo tree.
+[custom.az_warn]
+when = '''
+case "$PWD" in
+  "$HOME/orange-repos"|"$HOME/orange-repos"/*) want=orange ;;
+  "$HOME/blue-repos"|"$HOME/blue-repos"/*)     want=blue ;;
+  *) exit 1 ;;
+esac
+[ "$AZ_PROFILE" = "$want" ] && exit 1
+exit 0
+'''
+command = 'printf "az:%s ⚠" "${AZ_PROFILE:-none}"'
+style = 'bold #ed8796'
+format = '[$output]($style) '
+shell = ['bash', '--noprofile', '--norc']
